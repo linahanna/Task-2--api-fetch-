@@ -1,11 +1,326 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
 </head>
 <body>
-    
+  <video id="bg-video" class="video-background" autoplay muted loop>
+  <source src="background.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+<button id="videoControlBtn" class="video-toggle-btn">
+  ⏸
+</button>
+
+   <div class="form-container">
+  <div class="form-top">
+    <header>
+      <img src="logo.png" alt="H2O: Just Add Water" class="logo">
+    </header>
+
+    <div style="text-align:center; margin: 10px;">
+      <label for="seasonSelect">Choose a season:</label>
+      <select id="seasonSelect">
+        <option value="all">All Seasons</option>
+        <option value="1">Season 1</option>
+        <option value="2">Season 2</option>
+        <option value="3">Season 3</option>
+      </select>
+    </div>
+
+    <div style="text-align:center; margin: 10px;">
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Search episodes..." 
+        style="padding:8px; width:60%; border-radius:6px; border:none;"
+      >
+    </div>
+  </div>
+  <div id="grid" class="grid scrollable"></div>
+</div>
+
+  <!-- Popup -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <img id="modalCover" src="" alt="Episode">
+      <h2 id="modalTitle"></h2>
+      <p id="modalDesc"></p>
+      <button class="btn" onclick="watchEpisode()">Watch</button>
+      <br><br>
+      <button class="btn" style="background:rgb(78, 78, 83);" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <!-- Player -->
+  <div class="player" id="player">
+    <button id="closePlayer" class="close-btn">&times;</button>
+    <iframe id="youtubePlayer" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  </div>
+
+  <script>
+    const API_KEY = "0bcc3544b4918cd752d1e9e7bc4a08f5"; // replace with your TMDb API key
+    const IMG_BASE = "https://image.tmdb.org/t/p/original";
+    const showId = 2260; // H2O Just Add Water
+    let currentEpKey = "";
+
+    // Map episodes to YouTube IDs
+    const youtubeEpisodes = {
+      "1x01": "8FTcL_9dmrs",
+      "1x02": "5ShDTCMWJPk",
+      "1x03": "d_9kBkp-4ZY",
+      "1x04": "LmY8qdoF-4k",
+      "1x05": "r6NrXsVdcUc",
+      "1x06": "l6Q2r23n7Bk",
+      "1x07": "ItB8cA3XcdA",
+      "1x08": "mgv1Zwsh-gA",
+      "1x09": "JX-C5Xn5xV0",
+      "1x10": "BA4-vS4cR98",
+      "1x11": "uT6YP_ygt14",
+      "1x12": "v-2eUaS-bIE",
+      "1x13": "0yvUJGQwC70",
+      "1x14": "RMjkHDAcIMo",
+      "1x15": "Zm4iQPWj-lE",
+      "1x16": "40_IUutyZ1A",
+      "1x17": "CfCI98lJes4",
+      "1x18": "yd6EVz3LqC0",
+      "1x19": "eLZn1u45dng",
+      "1x20": "vElYyS7jlKo",
+      "1x21": "vJZO8oO54FI",
+      "1x22": "m7dDDmmM7hg",
+      "1x23": "cQWRD5HdMF4",
+      "1x24": "YFFTrvSmkQE",
+      "1x25": "023ndkyUV9E",
+      "1x26": "LgRDStU32V4",
+      "2x01": "IJV38zHyTkA",
+      "2x02": "f2a-QEzrzok",
+      "2x03": "7xqijHmHjIg",
+      "2x04": "tMX4R0-GPWc",
+      "2x05": "PxGzH89MAcM",
+      "2x06": "H27LXbpWT14",
+      "2x07": "cUCMEskl3QI",
+      "2x08": "rgMVmzD43Hs",
+      "2x09": "UnfyoKBDYKU",
+      "2x10": "-KVFVwRdL8w",
+      "2x11": "yTyynagA-ug",
+      "2x12": "zTWYnIr_3Fs",
+      "2x13": "dzaihrUcHmk",
+      "2x14": "KMhnlmx2PTY",
+      "2x15": "5nAH7zn7xA4",
+      "2x16": "Y_4kzcxXqj8",
+      "2x17": "jzDpF35cYso",
+      "2x18": "fnt2yKweH74",
+      "2x19": "yvVATOO767A",
+      "2x20": "r312V8mXCx0",
+      "2x21": "m-P-55QMWzY",
+      "2x22": "GVYW6EWO6gg",
+      "2x23": "xv-YS-QA-fI",
+      "2x24": "mQwZ9JP8zkA",
+      "2x25": "GkTPiB6PKAo",
+      "2x26": "tD5nY4U7Mho",
+      "3x01": "eFcTKdf4aAw",
+      "3x02": "5ICGcYH6Y3M",
+      "3x03": "U46-7clM_7o",
+      "3x04": "CNoZ2tBJPOg",
+      "3x05": "Xqe4BEuLm4w",
+      "3x06": "a9KdFgtnPz0",
+      "3x07": "uHFb7emRWFM",
+      "3x08": "XeoLSGnV0jU",
+      "3x09": "0h0YDcSuCjo",
+      "3x10": "3jdbpGRsruQ",
+      "3x11": "lSZlZLE-hJc",
+      "3x12": "P2sg5J3hr48",
+      "3x13": "wtxn-K4Oq9o",
+      "3x14": "N0hlOcEgFDc",
+      "3x15": "ZL1bM5gb_mI",
+      "3x16": "ooHnlJls_sg",
+      "3x17": "3Kgm3zPbVSc",
+      "3x18": "r9fusA-nCYA",
+      "3x19": "5j_PeKp7zoY",
+      "3x20": "__eQswV6q2k",
+      "3x21": "TCF4hq08Kwg",
+      "3x22": "TVyWkMlauHM",
+      "3x23": "VvDZg0SL0nc",
+      "3x24": "iQ227bZDek0",
+      "3x25": "QxU5lHaHAeI",
+      "3x26": "1n1EXa5FiJU",
+      // ... fill in all episodes
+    };
+
+    async function loadEpisodes(seasonFilter = "all", searchQuery = "") {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = ""; // clear old cards
+
+    searchQuery = searchQuery.toLowerCase();
+
+    for (let season = 1; season <= 3; season++) {
+        if (seasonFilter !== "all" && season != seasonFilter) continue;
+
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${showId}/season/${season}?api_key=${API_KEY}&language=en-US`);
+        const data = await res.json();
+
+        data.episodes.forEach(ep => {
+        const epKey = `${season}x${String(ep.episode_number).padStart(2, "0")}`;
+        if (!youtubeEpisodes[epKey]) return; // skip if no YouTube ID
+
+                // Search filter (check ONLY the title)
+        if (searchQuery && !ep.name.toLowerCase().includes(searchQuery)) {
+        return; // skip if it doesn't match
+        }
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+            <img src="${ep.still_path ? IMG_BASE + ep.still_path : ''}" alt="${ep.name}">
+            <h3>${season}x${ep.episode_number} - ${ep.name}</h3>
+        `;
+        card.onclick = () => openModal(epKey, ep.name, ep.overview, ep.still_path ? IMG_BASE + ep.still_path : "");
+        grid.appendChild(card);
+        });
+    }
+    }
+
+
+    function openModal(epKey, title, desc, cover) {
+      currentEpKey = epKey;
+      document.getElementById("modalTitle").innerText = title;
+      document.getElementById("modalDesc").innerText = desc || "No description available.";
+      document.getElementById("modalCover").src = cover || "";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+function watchEpisode() {
+  const youtubeId = youtubeEpisodes[currentEpKey];
+  if (!youtubeId) {
+    alert("No YouTube video linked for this episode.");
+    return;
+  }
+
+  const embedUrl = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&controls=1&enablejsapi=1`;
+
+  const player = document.getElementById("player");
+  const iframe = document.getElementById("youtubePlayer");
+
+  // Set src fresh each time
+  iframe.src = embedUrl;
+
+  // Force flexbox centering
+  player.style.display = "flex";
+  player.style.justifyContent = "center";
+  player.style.alignItems = "center";
+
+  document.body.style.overflow = "hidden"; // disable background scroll
+}
+
+document.getElementById("closePlayer").onclick = function () {
+  const player = document.getElementById("player");
+  const iframe = document.getElementById("youtubePlayer");
+
+  player.style.display = "none"; // hide the player
+  iframe.src = ""; // stop the video
+
+  // show background pause/play button again
+  document.getElementById("videoControlBtn").style.display = "block";
+};
+
+
+        const seasonSelect = document.getElementById("seasonSelect");
+const searchInput = document.getElementById("searchInput");
+
+// Reload when dropdown changes
+seasonSelect.addEventListener("change", () => {
+  loadEpisodes(seasonSelect.value, searchInput.value);
+});
+
+// Reload when typing in search
+searchInput.addEventListener("input", () => {
+  loadEpisodes(seasonSelect.value, searchInput.value);
+});
+
+// Load all episodes at start
+loadEpisodes();
+const videoBtn = document.getElementById("videoControlBtn");
+const bgVideo = document.getElementById("bg-video"); // your background video
+
+  </script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const video = document.querySelector('.video-background');
+  if (!video) {
+    console.warn('No element with class .video-background found.');
+    return;
+  }
+
+const videoBtn = document.getElementById('videoControlBtn');
+const bgVideo = document.getElementById('bg-video');
+
+videoBtn.addEventListener('click', () => {
+  if (bgVideo.paused) {
+    bgVideo.play();
+    videoBtn.textContent = '⏸';
+  } else {
+    bgVideo.pause();
+    videoBtn.textContent = '▶';
+  }
+});
+
+
+  // Toggle handler
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (video.paused) {
+      // attempt to play
+      const p = video.play();
+      if (p && p.catch) {
+        // autoplay may be blocked; still update UI on success/failure
+        p.then(() => {
+          btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+          btn.setAttribute('aria-pressed', 'true');
+          btn.title = 'Pause background video';
+        }).catch(() => {
+          // playback blocked — show play icon so user can explicitly start
+          btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+          btn.setAttribute('aria-pressed', 'false');
+          btn.title = 'Play background video';
+        });
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = 'Pause background video';
+      }
+    } else {
+      video.pause();
+      btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Play background video';
+    }
+  });
+
+  // If video is paused/played by other code, keep the button in sync
+  video.addEventListener('play', () => {
+    btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+    btn.setAttribute('aria-pressed', 'true');
+    btn.title = 'Pause background video';
+  });
+  video.addEventListener('pause', () => {
+    btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.title = 'Play background video';
+  });
+});
+</script>
+
+
+  </div>
+
+
 </body>
 </html>
